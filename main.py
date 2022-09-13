@@ -25,7 +25,7 @@ class runner():
 
         option = webdriver.ChromeOptions()
         option.add_argument('--disable-blink-features=AutomationControlled')
-        self.browser = webdriver.Chrome(executable_path='chromedriver.exe',options=option)
+        self.browser = webdriver.Chrome(options=option)
 
         time.sleep(3)
         actions.login(self.browser, self.email, self.password)
@@ -105,10 +105,6 @@ class runner():
 
         members = [member.get_attribute("href") for member in members]
         logging.info(f'Number of members: {len(members)}')
-
-        with open(r'members.txt', 'w') as fp:
-            for item in members:
-                fp.write("%s\n" % item)
 
         return members
 
