@@ -16,6 +16,7 @@ import credentials
 
 class runner:
     def __init__(self):
+        """This class will use selenium to load the chrome driver and login to LinkedIn."""
         self.email = credentials.email
         self.password = credentials.password
 
@@ -43,15 +44,39 @@ class runner:
         actions.login(self.browser, self.email, self.password)
 
     def query_gs(self, workbook, sheet) -> pd.DataFrame:
+        """This function will query a Google Sheet and return a pandas dataframe.
+
+        Args:
+            workbook (str): the python object with the spreadsheet opened using pygsheets
+            sheet (int): the index of the sheet to be queried
+
+        Returns:
+            pandas.DataFrame: all the columns and values of the sheet"""
+
         return pd.DataFrame(workbook[sheet].get_all_records())
 
     def quantum_value(self, value: int, list: list):
+        """This function checks if an index exists in list. If it does, it will return the 'text' attribute of the element. If it doesn't, it will return None.
+
+        Args:
+            value (int): the index to be checked
+            list (list): the list to be checked
+
+        Returns:
+            str: the text attribute of the element if it exists, None otherwise"""
         if len(list) >= value + 1:
             return list[value].text
         else:
             return ""
 
-    def get_geo(self, address: str):
+    def get_geo(self, address: str) -> tuple:
+        """This function will use the Google Maps API to get geoinformation about a location. It will get the centroid of the area to always return the administrative_area_level_2 or administrative_area_level_1 of that area in the final results.
+
+        Args:
+            address (str): the address to be geocoded. In this case, it is advised to always use an area (city, state, country, etc.)
+
+        Returns:
+            tuple: the latlng of the centroid of the area given, the latlng of the centroid of the area, the name of the area, the type of the area, the country of the area"""
         gmaps = googlemaps.Client(key=credentials.gmaps_key)
         geocode_result = gmaps.geocode(address)
         original_latlng = geocode_result[0]["geometry"]["location"]
@@ -72,12 +97,20 @@ class runner:
         return (original_latlng, area_latlng, area_name, location_type, country)
 
     def login(self):
+        """Basic function to execute a login in LinkedIn using the linkedin_scraper package"""
         actions.login(self.browser, self.email, self.password)
 
     def random_sleep(self, min, max):
+        """This function will sleep for a random amount of time between min and max seconds. Ideal for scrapping.
+
+        Args:
+            min (int): the minimum amount of seconds to sleep
+            max (int): the maximum amount of seconds to sleep"""
+
         time.sleep(random.uniform(min, max))
 
-    def retrieve_info(self):
+    def retrieve_info(self) -> tuple:
+        """This function will get information from both the first and second sheets of the file indicated on credentials.py as well as for the file contained the opt-out form data and return as Pandas DataFrames inside a tuple."""
         gs = pygsheets.authorize(service_file="gsheet_credential.json")
         wb_main = gs.open_by_key(credentials.gsheets_main_key)
         main = self.query_gs(wb_main, 0)
@@ -94,6 +127,10 @@ class runner:
         return (main, optin, optout)
 
     def get_members_list(self) -> list:
+        """This function will get the list of members of the groups indicated on credentials.py and return it as a list.
+
+        Returns:
+            list: the url list of of all members of the groups indicated on credentials.py"""
         browser = self.browser
         browser.get(f"https://www.linkedin.com/groups/{credentials.group_id}/members/")
 
@@ -132,6 +169,13 @@ class runner:
         return members
 
     def scraper(self, fellow: str) -> dict:
+        """This function will take an URL containing a LinkedIn profile and scrap it to obtain the person's name, their picture, current location and employer and the highlighted education institution
+
+        Args:
+            fellow (str): full URL of a Linkedin profile
+
+        Returns:
+            dict: dictionary with uid (same as url in this case), name on the profile, image url, location, employer, and highlithed education institution and the url once more"""
         browser = self.browser
 
         browser.get(fellow)
@@ -176,7 +220,14 @@ class runner:
         }
 
     def add_geoinfo(self, df: pd.DataFrame) -> pd.DataFrame:
-        # For all rows, add latlng on another column based on location
+        """Adds the geoinformation for each row on the dataframe.
+
+        Args:
+            df (pd.DataFrame): dataframe with at least the columns "location" and "country"
+
+        Returns:
+            pd.DataFrame: the same dataframe, now with the columns "original_latlng", "area_latlng", "area_name", "location_type", and "country" added"""
+
         df["original_latlng"] = df["location"].apply(lambda x: self.get_geo(x)[0])
         df["area_latlng"] = df["location"].apply(lambda x: self.get_geo(x)[1])
         df["area_name"] = df["location"].apply(lambda x: self.get_geo(x)[2])
@@ -193,6 +244,10 @@ class runner:
         return df
 
     def update(self, all: bool = False):
+        """Simply run this function to automatically update the google sheet containing the data of the members with new members or people added to the opt-in sheet.
+
+        Args:
+            all (bool, optional): If True, it will scrap again information for everyone. If not specified, then it will just scrap and append data for people not previously included. Defaults to False."""
         main, optin, optout = self.retrieve_info()
         old_uid = main["uid"].tolist()
 
