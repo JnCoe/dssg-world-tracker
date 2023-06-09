@@ -63,7 +63,8 @@ class runner:
         return pd.DataFrame(workbook[sheet].get_all_records())
 
     def quantum_value(self, value: int, list: list):
-        """This function checks if an index exists in list. If it does, it will return the 'text' attribute of the element. If it doesn't, it will return None.
+        """This function checks if an index exists in list. If it does, it will return the 'text' attribute of the element.
+        If it doesn't, it will return None.
 
         Args:
             value (int): the index to be checked
@@ -77,13 +78,15 @@ class runner:
             return ""
 
     def get_geo(self, address: str) -> tuple:
-        """This function will use the Google Maps API to get geoinformation about a location. It will get the centroid of the area to always return the administrative_area_level_2 or administrative_area_level_1 of that area in the final results.
+        """This function will use the Google Maps API to get geoinformation about a location. It will get the centroid
+        of the area to always return the administrative_area_level_2 or administrative_area_level_1 of that area in the final results.
 
         Args:
             address (str): the address to be geocoded. In this case, it is advised to always use an area (city, state, country, etc.)
 
         Returns:
-            tuple: the latlng of the centroid of the area given, the latlng of the centroid of the area, the name of the area, the type of the area, the country of the area
+            tuple: the latlng of the centroid of the area given, the latlng of the centroid of the area, the name of the area, the type of the
+            area, the country of the area
         """
         gmaps = googlemaps.Client(key=credentials.gmaps_key)
         geocode_result = gmaps.geocode(address)
@@ -127,7 +130,10 @@ class runner:
         time.sleep(random.uniform(min, max))
 
     def retrieve_info(self) -> tuple:
-        """This function will get information from both the first and second sheets of the file indicated on credentials.py as well as for the file contained the opt-out form data and return as Pandas DataFrames inside a tuple."""
+        """This function will get information from both the first and second sheets of the file indicated on credentials.py
+        as well as for the file contained the opt-out form data and return as Pandas DataFrames inside a tuple.
+        """
+
         gs = pygsheets.authorize(service_account_file="gsheet_credential.json")
         wb_main = gs.open_by_key(credentials.gsheets_main_key)
         main = self.query_gs(wb_main, 0)
@@ -187,13 +193,15 @@ class runner:
         return members
 
     def scraper(self, fellow: str) -> dict:
-        """This function will take an URL containing a LinkedIn profile and scrap it to obtain the person's name, their picture, current location and employer and the highlighted education institution
+        """This function will take an URL containing a LinkedIn profile and scrap it to obtain the person's name,
+        their picture, current location and employer and the highlighted education institution
 
         Args:
             fellow (str): full URL of a Linkedin profile
 
         Returns:
-            dict: dictionary with uid (same as url in this case), name on the profile, image url, location, employer, and highlithed education institution and the url once more
+            dict: dictionary with uid (same as url in this case), name on the profile, image url, location,
+            employer, and highlithed education institution and the url once more
         """
         browser = self.browser
 
@@ -247,7 +255,8 @@ class runner:
             df (pd.DataFrame): dataframe with at least the columns "location" and "country"
 
         Returns:
-            pd.DataFrame: the same dataframe, now with the columns "original_latlng", "area_latlng", "area_name", "location_type", and "country" added
+            pd.DataFrame: the same dataframe, now with the columns "original_latlng", "area_latlng",
+            "area_name", "location_type", and "country" added
         """
 
         df["original_latlng"] = df["location"].apply(lambda x: self.get_geo(x)[0])
@@ -266,10 +275,12 @@ class runner:
         return df
 
     def update(self, all: bool = False):
-        """Simply run this function to automatically update the google sheet containing the data of the members with new members or people added to the opt-in sheet.
+        """Simply run this function to automatically update the google sheet containing the data of the members
+        with new members or people added to the opt-in sheet.
 
         Args:
-            all (bool, optional): If True, it will scrap again information for everyone. If not specified, then it will just scrap and append data for people not previously included. Defaults to False.
+            all (bool, optional): If True, it will scrap again information for everyone. If not specified, then it
+            will just scrap and append data for people not previously included. Defaults to False.
         """
 
         self.login("cookies")
@@ -279,7 +290,7 @@ class runner:
         members_list = self.get_members_list()
         new_uid = set(members_list + optin["uid"].tolist()) - set(old_uid)
 
-        if all == True:
+        if all is True:
             new_uid.update(old_uid)
 
         for uid in tqdm(new_uid, desc="Loading fellows"):
