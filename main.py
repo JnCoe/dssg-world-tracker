@@ -9,7 +9,9 @@ import pandas as pd
 import pygsheets
 from linkedin_scraper import actions
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from tqdm.auto import tqdm
+import pickle
 
 import credentials
 
@@ -40,8 +42,13 @@ class runner:
         option.add_argument("--disable-blink-features=AutomationControlled")
         self.browser = webdriver.Chrome(options=option)
 
-        time.sleep(3)
-        actions.login(self.browser, self.email, self.password)
+        time.sleep(1)
+
+        self.browser.get(
+            "https://www.linkedin.com"
+        )  # Open any page just to load the cookies
+
+        time.sleep(1)
 
     def query_gs(self, workbook, sheet) -> pd.DataFrame:
         """This function will query a Google Sheet and return a pandas dataframe.
@@ -76,7 +83,8 @@ class runner:
             address (str): the address to be geocoded. In this case, it is advised to always use an area (city, state, country, etc.)
 
         Returns:
-            tuple: the latlng of the centroid of the area given, the latlng of the centroid of the area, the name of the area, the type of the area, the country of the area"""
+            tuple: the latlng of the centroid of the area given, the latlng of the centroid of the area, the name of the area, the type of the area, the country of the area
+        """
         gmaps = googlemaps.Client(key=credentials.gmaps_key)
         geocode_result = gmaps.geocode(address)
         original_latlng = geocode_result[0]["geometry"]["location"]
@@ -96,9 +104,18 @@ class runner:
 
         return (original_latlng, area_latlng, area_name, location_type, country)
 
-    def login(self):
+    def login(self, method):
         """Basic function to execute a login in LinkedIn using the linkedin_scraper package"""
-        actions.login(self.browser, self.email, self.password)
+
+        if method == "linkedin_scraper":
+            actions.login(self.browser, self.email, self.password)
+        elif method == "cookies":
+            with open("cookies.pkl", "rb") as file:
+                cookies = pickle.load(file)
+                for cookie in cookies:
+                    self.browser.add_cookie(cookie)
+
+        time.sleep(2)
 
     def random_sleep(self, min, max):
         """This function will sleep for a random amount of time between min and max seconds. Ideal for scrapping.
@@ -111,7 +128,7 @@ class runner:
 
     def retrieve_info(self) -> tuple:
         """This function will get information from both the first and second sheets of the file indicated on credentials.py as well as for the file contained the opt-out form data and return as Pandas DataFrames inside a tuple."""
-        gs = pygsheets.authorize(service_file="gsheet_credential.json")
+        gs = pygsheets.authorize(service_account_file="gsheet_credential.json")
         wb_main = gs.open_by_key(credentials.gsheets_main_key)
         main = self.query_gs(wb_main, 0)
         optin = self.query_gs(wb_main, 1)
@@ -130,7 +147,8 @@ class runner:
         """This function will get the list of members of the groups indicated on credentials.py and return it as a list.
 
         Returns:
-            list: the url list of of all members of the groups indicated on credentials.py"""
+            list: the url list of of all members of the groups indicated on credentials.py
+        """
         browser = self.browser
         browser.get(f"https://www.linkedin.com/groups/{credentials.group_id}/members/")
 
@@ -140,7 +158,6 @@ class runner:
         cont = 0
 
         while True:
-
             browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
             self.random_sleep(3, 7)
@@ -159,8 +176,9 @@ class runner:
             last_height = new_height
 
         browser.set_window_size(1920, 1080)
-        members = browser.find_elements_by_class_name(
-            "ember-view.ui-conditional-link-wrapper.ui-entity-action-row__link"
+        members = browser.find_elements(
+            By.CLASS_NAME,
+            "ember-view.ui-conditional-link-wrapper.ui-entity-action-row__link",
         )
 
         members = [member.get_attribute("href") for member in members]
@@ -175,33 +193,36 @@ class runner:
             fellow (str): full URL of a Linkedin profile
 
         Returns:
-            dict: dictionary with uid (same as url in this case), name on the profile, image url, location, employer, and highlithed education institution and the url once more"""
+            dict: dictionary with uid (same as url in this case), name on the profile, image url, location, employer, and highlithed education institution and the url once more
+        """
         browser = self.browser
 
         browser.get(fellow)
 
         self.random_sleep(30, 60)
 
-        location = browser.find_elements_by_class_name(
-            "text-body-small.inline.t-black--light.break-words"
+        location = browser.find_elements(
+            By.CLASS_NAME, "text-body-small.inline.t-black--light.break-words"
         )
         location = self.quantum_value(0, location)
 
-        image = browser.find_elements_by_class_name(
-            "pv-top-card-profile-picture__image.pv-top-card-profile-picture__image--show.ember-view"
+        image = browser.find_elements(
+            By.CLASS_NAME,
+            "pv-top-card-profile-picture__image.pv-top-card-profile-picture__image--show.ember-view",
         )
         if image == []:
             image = ""
         else:
             image = image[0].get_attribute("src")
 
-        name = browser.find_elements_by_class_name(
-            "text-heading-xlarge.inline.t-24.v-align-middle.break-words"
+        name = browser.find_elements(
+            By.CLASS_NAME, "text-heading-xlarge.inline.t-24.v-align-middle.break-words"
         )
         name = name[0].text
 
-        associations = browser.find_elements_by_class_name(
-            "inline-show-more-text.inline-show-more-text--is-collapsed.inline-show-more-text--is-collapsed-with-line-clamp.inline"
+        associations = browser.find_elements(
+            By.CLASS_NAME,
+            "inline-show-more-text.inline-show-more-text--is-collapsed.inline-show-more-text--is-collapsed-with-line-clamp.inline",
         )
 
         employer = self.quantum_value(0, associations)
@@ -226,7 +247,8 @@ class runner:
             df (pd.DataFrame): dataframe with at least the columns "location" and "country"
 
         Returns:
-            pd.DataFrame: the same dataframe, now with the columns "original_latlng", "area_latlng", "area_name", "location_type", and "country" added"""
+            pd.DataFrame: the same dataframe, now with the columns "original_latlng", "area_latlng", "area_name", "location_type", and "country" added
+        """
 
         df["original_latlng"] = df["location"].apply(lambda x: self.get_geo(x)[0])
         df["area_latlng"] = df["location"].apply(lambda x: self.get_geo(x)[1])
@@ -247,12 +269,16 @@ class runner:
         """Simply run this function to automatically update the google sheet containing the data of the members with new members or people added to the opt-in sheet.
 
         Args:
-            all (bool, optional): If True, it will scrap again information for everyone. If not specified, then it will just scrap and append data for people not previously included. Defaults to False."""
+            all (bool, optional): If True, it will scrap again information for everyone. If not specified, then it will just scrap and append data for people not previously included. Defaults to False.
+        """
+
+        self.login("cookies")
         main, optin, optout = self.retrieve_info()
         old_uid = main["uid"].tolist()
 
         members_list = self.get_members_list()
         new_uid = set(members_list + optin["uid"].tolist()) - set(old_uid)
+
         if all == True:
             new_uid.update(old_uid)
 
@@ -267,13 +293,12 @@ class runner:
 
         self.infos = self.add_geoinfo(self.infos)
         self.infos = pd.concat([self.infos, main])
-        self.infos = pd.concat([self.infos, main])
 
         self.infos["optout"] = self.infos.apply(
             lambda x: 1 if x["uid"] in optout[optout.columns[1]].tolist() else 0, axis=1
         )
 
-        gs = pygsheets.authorize(service_file="gsheet_credential.json")
+        gs = pygsheets.authorize(service_account_file="gsheet_credential.json")
         wb_main = gs.open_by_key(credentials.gsheets_main_key)
         main = self.query_gs(wb_main, 0)
         wb_main[0].clear()
