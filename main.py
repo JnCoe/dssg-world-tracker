@@ -1,5 +1,6 @@
 import datetime
 import logging
+import pickle
 import random
 import time
 
@@ -11,7 +12,6 @@ from linkedin_scraper import actions
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from tqdm.auto import tqdm
-import pickle
 
 import credentials
 
